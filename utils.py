@@ -1,0 +1,112 @@
+import numpy as np
+import pandas as pd
+import torch
+from sklearn import preprocessing, metrics
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score, confusion_matrix
+
+eps = torch.tensor(1.e-8)
+
+def load_data(file_path, names=None):
+    data = pd.read_csv(file_path, names=names)
+    return data
+
+def one_hot_encoding(data, cols):
+    encoded_data = pd.DataFrame()
+    for col in cols:
+        dummies = pd.get_dummies(data[col], prefix=col)
+        encoded_data = pd.concat([encoded_data, dummies], axis=1)
+    data.drop(cols, axis=1, inplace=True)
+    data = pd.concat([data, encoded_data], axis=1)
+    return data
+
+def label_encoding(data, cols):
+    encoded_data = pd.DataFrame()
+    encoder = preprocessing.LabelEncoder()
+    for col in cols:
+        encoded_col = encoder.fit_transform(data[col])
+        encoded_data = pd.concat([encoded_data, pd.DataFrame(encoded_col, columns=[col])], axis=1)
+    data.drop(cols, axis=1, inplace=True)
+    data = pd.concat([data, encoded_data], axis=1)
+    return data
+
+def get_labels(data, name):
+    if name == 'IDS2018':
+        label = data['Label']
+        label = np.where(label == "Benign", 0, 1)
+        data.drop(['Label'], axis=1, inplace=True)
+    elif name == 'kdd':
+        label = data[41]
+        label = np.where(label == "normal", 0, 1)
+        data.drop([41], axis=1, inplace=True)
+    else:
+        label = None
+    return label
+
+def get_scores(y_pred, y):
+    accuracy = accuracy_score(y, y_pred)
+    precision = precision_score(y, y_pred, average='binary')
+    recall = recall_score(y, y_pred, average='binary')
+    f1 = f1_score(y, y_pred, average='binary')
+    return accuracy, precision, recall, f1
+
+def get_confusion_matrix(y_pred, y):
+    tn, fp, fn, tp = confusion_matrix(y, y_pred).ravel()
+    return tn, fp, fn, tp
+
+def normalize_cols(data, scaler=None):
+    if data.empty:
+        return data, scaler
+    
+    if scaler is None:
+        scaler = MinMaxScaler().fit(data)
+    
+    data_scaled = scaler.transform(data)
+    return pd.DataFrame(data_scaled, columns=data.columns), scaler
+
+def merge_cols(data1, data2):
+    return pd.concat([data1, data2], axis=1)
+
+def remove_cols(data, cols):
+    col_names = data.columns[cols]
+    data.drop(col_names, axis=1, inplace=True)
+    return data
+
+def split_data(data, y, split=0.7):
+    split_index = int(split * len(data))
+    train = data.iloc[:split_index]
+    test = data.iloc[split_index:]
+    y_train = y[:split_index]
+    y_test = y[split_index:]
+    return train, test, y_train, y_test
+
+def fill_na(data):
+    data = data.fillna(value=0, axis=1)
+    return data
+    #return data.fillna(0, axis=1)
+
+def relative_euclidean_distance(x1, x2, eps=eps):
+    num = torch.norm(x1 - x2, p=2, dim=1)
+    denom = torch.norm(x1, p=2, dim=1)
+    return num / torch.max(denom, eps)
+
+def cosine_similarity(x1, x2, eps=eps):
+    dot_prod = torch.sum(x1 * x2, dim=1)
+    norm1 = torch.norm(x1, p=2, dim=1)
+    norm2 = torch.norm(x2, p=2, dim=1)
+    return dot_prod / torch.max(norm1 * norm2, eps)
+
+def normalize_tuple(x, norm_val):
+    a, b = x
+    return (a / norm_val, b / norm_val)
+
+def process_features(data, categorical_cols, features, embed):
+    if features == "categorical":
+        data = data[categorical_cols]
+    elif features == "numerical":
+        data = remove_cols(data, categorical_cols)
+    if embed == 'one_hot':
+        data = one_hot_encoding(data, categorical_cols)
+    elif embed == 'label_encode':
+        data = label_encoding(data, categorical_cols)
+    return data
