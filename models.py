@@ -63,14 +63,11 @@ class Mixture(nn.Module):
         out = torch.autograd.Variable(torch.FloatTensor(out_values))
         return torch.FloatTensor(out)
 
-    # models.py - Mixture class
     def _update_parameters(self, samples, affiliations):
         if not self.training:
             return
         
-        # Atualizar com gradientes habilitados
         with torch.no_grad():
-            # Calcular novos valores
             phi = torch.mean(affiliations)
             num = torch.sum(affiliations.view(-1, 1) * samples, dim=0)
             denom = torch.sum(affiliations)
@@ -79,12 +76,10 @@ class Mixture(nn.Module):
             diff = samples - new_mu
             new_Sigma = (diff.T @ (diff * affiliations.view(-1, 1))) / denom
             
-            # Atualizar com momentum
             self.Phi.data = 0.9 * self.Phi.data + 0.1 * phi
             self.mu.data = 0.9 * self.mu.data + 0.1 * new_mu
             self.Sigma.data = 0.9 * self.Sigma.data + 0.1 * new_Sigma
             
-        # Adicionar ruído para estabilidade
         self.Sigma.data += torch.eye(self.dimension_embedding).to(self.Sigma.device) * 1e-6
 
     def gmm_loss(self, out, L1, L2):
