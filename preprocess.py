@@ -8,6 +8,15 @@ from utils import (load_data, get_labels, fill_na,
 SEED = 42
 
 def preprocess_data(dataset_name, features, embed, output_dir):
+    """
+    Dataset-specific preprocessing pipeline:
+      1. Loads and splits data into normal and anomalous samples.
+      2. Handles categorical features via encoding/embedding.
+      3. Performs train/validation/test splits.
+      4. Normalizes numerical features.
+      5. Saves processed datasets and labels.
+    """
+    # Load dataset and separate benign (normal) and malicious (anomalous) samples
     if dataset_name == 'kdd':
         names = list(range(43))
         data = load_data('data/KDDTrain+.txt', names)
@@ -34,14 +43,17 @@ def preprocess_data(dataset_name, features, embed, output_dir):
     else:
         raise ValueError("Invalid dataset name")
 
+    # Define a base processing function to handle feature processing and missing values
     def _base_process(df):
         df = process_features(df, categorical_cols, features, embed)
         df = fill_na(df.replace([np.inf, -np.inf], np.nan))
         return df
 
+    # Process both benign and malicious datasets
     dataM = _base_process(dataM)
     dataB = _base_process(dataB)
 
+    # Split benign data into training, validation, and test sets
     train_data, temp_data, Y_train, Y_temp = train_test_split(
         dataB, YB, test_size=0.5, random_state=SEED
     )
@@ -49,22 +61,25 @@ def preprocess_data(dataset_name, features, embed, output_dir):
         temp_data, Y_temp, test_size=0.5, random_state=SEED
     )
 
+    # Split malicious data into validation and test sets
     val_malignant, test_malignant, Y_val_malignant, Y_test_malignant = train_test_split(
         dataM, YM, test_size=0.5, random_state=SEED
     )
 
+    # Normalize data using the benign training set's statistics
     train_data_normalized, scaler = normalize_cols(train_data)
     val_benign_normalized, _ = normalize_cols(val_benign, scaler)
     test_benign_normalized, _ = normalize_cols(test_benign, scaler)
     val_malignant_normalized, _ = normalize_cols(val_malignant, scaler)
     test_malignant_normalized, _ = normalize_cols(test_malignant, scaler)
 
+    # Concatenate benign and malignant validation and test sets
     val_data = pd.concat([val_benign_normalized, val_malignant_normalized])
     Y_val = np.concatenate([Y_val_benign, Y_val_malignant])
-
     test_data = pd.concat([test_benign_normalized, test_malignant_normalized])
     Y_test = np.concatenate([Y_test_benign, Y_test_malignant])
 
+    # Save processed datasets and labels to the specified output directory
     os.makedirs(output_dir, exist_ok=True)
     train_data_normalized.to_csv(f"{output_dir}/train_data_{dataset_name}.csv", index=False)
     val_data.to_csv(f"{output_dir}/val_data_{dataset_name}.csv", index=False)
