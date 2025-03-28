@@ -12,8 +12,8 @@ from models import (CompressionNetwork, EstimationNetwork,
 
 def prepare_dataloaders(data_dir, batch_size):
     train_data = pd.read_csv(f"{data_dir}/train_data.csv")
-    val_data = pd.read_csv(f"{data_dir}/test_data.csv")
-    Y_val = np.load(f"{data_dir}/Y_test.npy")
+    val_data = pd.read_csv(f"{data_dir}/val_data.csv")
+    Y_val = np.load(f"{data_dir}/Y_val.npy")
 
     train_tensor = torch.tensor(train_data.values.astype(np.float32))
     val_tensor = torch.tensor(val_data.values.astype(np.float32))
